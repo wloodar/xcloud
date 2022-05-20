@@ -1,0 +1,5 @@
+xcloud
+======
+
+xcloud is a data-transfer service for local networks, based on a central server
+which daemonized client connects to.
