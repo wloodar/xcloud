@@ -3,12 +3,14 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <unistd.h>
+#include "common.h"
 #include "server.h"
 #include "xcp.h"
 
 void serve();
 void pass_package(int client_sock, struct xcp_packet buf);
 void assign_user_id(int client_sock, uint16_t size);
+void save_user_id(xcp_userid user_id, char* name);
 
 int main()
 {
@@ -70,20 +72,21 @@ void assign_user_id(int client_sock, uint16_t size)
 
     FILE *f = fopen("/dev/random", "rb");
 
-    char user_id[8];
-    fread(user_id, 1, 8, f);
+    xcp_userid user_id;
+    fread(&user_id, 1, sizeof(user_id), f);
 
-    send_package(client_sock, XCP_NEW, user_id, 8);
+    send_package(client_sock, XCP_NEW, &user_id, sizeof(user_id));
 
-
+    save_user_id(user_id, name);
 
     fclose(f);
     free(payload);
 }
 
-void save_user_id(char user_id[8])
+void save_user_id(xcp_userid user_id, char* name)
 {
     FILE *f = fopen("data/users", "a");
 
-    fprintf(f, "");
+    fprintf(f, "%016llx:%s\n", user_id, name);
+    fclose(f);
 }
