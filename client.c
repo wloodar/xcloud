@@ -127,12 +127,5 @@ void acquire_userid(int sock, struct userdata *data)
 	dbytes(&data->userid, 8);
 	fputc('\n', stdout);
 
-#if 1
-	FILE *f = fopen("test-bin", "wb");
-	fwrite(packet, 1, sizeof(struct xcp_packet) + sizeof(struct xcp_packet_new)
-			+ nusername + 1, f);
-	fclose(f);
-#endif
-
 	free(packet);
 }
