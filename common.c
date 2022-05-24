@@ -19,7 +19,7 @@ void die(const char *fmt, ...)
 void userid_to_string(char *buf, xcp_userid userid)
 {
 	for (int i = 0; i < 8; i++)
-		sprintf(buf + i, "%02hhx", ((unsigned char *) &userid)[i]);
+		sprintf(buf + i * 2, "%02hhx", ((unsigned char *) &userid)[i]);
 }
 
 void dbytes(void *addr, size_t amount)

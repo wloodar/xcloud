@@ -39,8 +39,6 @@ int main(int argc, char **argv)
 	struct userdata userdata;
 	int sock;
 
-
-
 	if (argc < 2)
 		die("Missing argument: <host>");
 
