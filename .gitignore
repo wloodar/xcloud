@@ -1,3 +1,5 @@
 # Ignore build dir with binaries
 /build/
 /data/
+
+compile_flags.txt

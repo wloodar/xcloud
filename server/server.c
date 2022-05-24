@@ -3,9 +3,8 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <unistd.h>
-#include "common.h"
+#include "../common/common.h"
 #include "server.h"
-#include "xcp.h"
 
 void serve();
 void pass_package(int client_sock, struct xcp_packet buf);
@@ -73,6 +72,7 @@ void assign_user_id(int client_sock, uint16_t size)
     FILE *f = fopen("/dev/random", "rb");
 
     xcp_userid user_id;
+
     fread(&user_id, 1, sizeof(user_id), f);
 
     send_package(client_sock, XCP_NEW, &user_id, sizeof(user_id));
