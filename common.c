@@ -1,6 +1,7 @@
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include "common.h"
 
 void die(const char *fmt, ...)
 {
@@ -13,4 +14,35 @@ void die(const char *fmt, ...)
 
    va_end(args);
    exit(1);
+}
+
+void userid_to_string(char *buf, xcp_userid userid)
+{
+	for (int i = 0; i < 8; i++)
+		sprintf(buf + i, "%02hhx", ((unsigned char *) &userid)[i]);
+}
+
+void dbytes(void *addr, size_t amount)
+{
+   size_t lines, rest;
+
+   lines = amount >> 4;
+   for (size_t i = 0; i < lines; i++) {
+      for (size_t j = 0; j < 16; j++) {
+         printf("%02hhx", ((char *) addr)[i*16+j]);
+         if (j % 2 != 0)
+            putc(' ', stdout);
+      }
+      printf("\n");
+   }
+
+   rest = (lines << 4) ^ amount;
+   for (size_t i = 0; i < rest; i++) {
+      printf("%02hhx", ((char *) addr)[(lines << 4) + i]);
+      if (i % 2 != 0)
+         putc(' ', stdout);
+   }
+
+   if (rest)
+      putc('\n', stdout);
 }
