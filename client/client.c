@@ -11,7 +11,7 @@
 #include <stdio.h>
 #include <time.h>
 
-#include "common.h"
+#include "../common/common.h"
 #include "xcp.h"
 
 #define SERVER_PORT     5050
