@@ -1,6 +1,12 @@
 #pragma once
 #include <stdint.h>
 
+#define XCP_VERSION     1
+#define XCP_SEVER_PORT  5050
+#define XCP_MAXSIZE     1500
+
+#define XCP_PACK        __attribute__((packed))
+
 enum xcp_packet_type
 {
     XCP_ACK,
@@ -8,8 +14,17 @@ enum xcp_packet_type
     XCP_NEW
 };
 
-struct xcp_packet
+struct XCP_PACK xcp_packet
 {
-    int type;
-    uint8_t *payload;
+    uint8_t type;
+    uint8_t version;
+    uint16_t size;
+    uint8_t payload[];
+};
+
+struct XCP_PACK xcp_packet_new
+{
+    int name;
+    int img;
+    uint8_t data[];
 };
