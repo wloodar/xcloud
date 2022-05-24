@@ -13,7 +13,9 @@ void save_user_id(xcp_userid user_id, char* name);
 
 int main()
 {
-    serve();
+    struct userlist userslist;
+    userlist_load(&userslist, "data/users");
+    // serve();
 }
 
 void serve()
