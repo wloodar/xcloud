@@ -19,24 +19,15 @@
 #define HOSTNAME        "test-laptop"
 
 
-struct __attribute__((packed)) userdata
-{
-	xcp_userid userid;
-	int userid_ts;
-};
-
-
 void die(const char *fmt, ...);
 void dbytes(void *addr, size_t amount);
-void acquire_userid(int sock, struct userdata *userdata);
-int load_userdata(struct userdata *data);
-int save_userdata(struct userdata *data);
+xcp_userid acquire_userid(int sock);
 
 
 int main(int argc, char **argv)
 {
 	struct sockaddr_in addr;
-	struct userdata userdata;
+	xcp_userid userid;
 	int sock;
 
 	if (argc < 2)
@@ -52,42 +43,18 @@ int main(int argc, char **argv)
 		die("Failed to connect");
 
 	/* If we don't have any saved ID, ask the server for one. */
-	if (load_userdata(&userdata))
-		acquire_userid(sock, &userdata);
+	if (!(userid = get_userid()))
+		userid = acquire_userid(sock);
 
-	save_userdata(&userdata);
-
+	save_userid(userid);
 	close(sock);
 }
 
-int load_userdata(struct userdata *data)
-{
-	FILE *f;
-
-	if (!(f = fopen(DATA_DIR "userid", "rb")))
-		return 1;
-
-	fread(data, sizeof(*data), 1, f);
-	fclose(f);
-	return 0;
-}
-
-int save_userdata(struct userdata *data)
-{
-	FILE *f;
-
-	if (!(f = fopen(DATA_DIR "userid", "wb")))
-		die("Data folder cannot be found");
-	fwrite(data, sizeof(*data), 1, f);
-
-	fclose(f);
-	return 0;
-}
-
-void acquire_userid(int sock, struct userdata *data)
+xcp_userid acquire_userid(int sock)
 {
 	struct xcp_packet *packet;
 	struct xcp_packet_new *newpacket;
+	xcp_userid userid;
 
 	const char *username = HOSTNAME;
 	int nusername = strlen(username);
@@ -118,14 +85,10 @@ void acquire_userid(int sock, struct userdata *data)
 	if (res.type != XCP_NEW)
 		die("Invalid packet type received");
 
-	read(sock, &data->userid, sizeof(data->userid));
-	dbytes(&data->userid, 8);
-	data->userid = flip_bytes(data->userid);
-	data->userid_ts = time(NULL);
-
-	printf("User ID: ");
-	dbytes(&data->userid, 8);
-	fputc('\n', stdout);
+	read(sock, &userid, sizeof(userid));
+	userid = flip_bytes(userid);
 
 	free(packet);
+
+	return userid;
 }

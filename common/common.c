@@ -3,6 +3,9 @@
 #include <stdlib.h>
 #include "common.h"
 
+#define USERID_FILE     "data/userid"
+
+
 void die(const char *fmt, ...)
 {
    va_list args;
@@ -45,6 +48,31 @@ void dbytes(void *addr, size_t amount)
 
    if (rest)
       putc('\n', stdout);
+}
+
+xcp_userid get_userid()
+{
+	xcp_userid userid;
+	FILE *f;
+
+	if (!(f = fopen(USERID_FILE, "rb")))
+		return 0;
+
+	fread(&userid, 1, sizeof(userid), f);
+	fclose(f);
+	return userid;
+}
+
+int save_userid(xcp_userid userid)
+{
+	FILE *f;
+
+	if (!(f = fopen(USERID_FILE, "wb")))
+		return 1;
+
+	fwrite(&userid, 1, sizeof(userid), f);
+	fclose(f);
+	return 0;
 }
 
 xcp_userid flip_bytes(xcp_userid id)
