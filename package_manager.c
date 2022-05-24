@@ -11,4 +11,5 @@ void send_package(int client_sock, int type, void *buf, int size)
     packet.version = XCP_VERSION;
 
     send(client_sock, &packet, sizeof(packet), 0);
+    send(client_sock, buf, size, 0);
 }

@@ -1,2 +1,3 @@
 # Ignore build dir with binaries
 /build/
+/data/

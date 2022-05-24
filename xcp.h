@@ -19,6 +19,7 @@ struct XCP_PACK xcp_packet
     uint8_t type;
     uint8_t version;
     uint16_t size;
+    uint64_t user_id;
     uint8_t payload[];
 };
 

@@ -75,6 +75,15 @@ void assign_user_id(int client_sock, uint16_t size)
 
     send_package(client_sock, XCP_NEW, user_id, 8);
 
+
+
     fclose(f);
     free(payload);
+}
+
+void save_user_id(char user_id[8])
+{
+    FILE *f = fopen("data/users", "a");
+
+    fprintf(f, "");
 }
