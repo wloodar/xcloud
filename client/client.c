@@ -12,7 +12,7 @@
 #include <time.h>
 
 #include "../common/common.h"
-#include "xcp.h"
+#include <xcp.h>
 
 #define SERVER_PORT     5050
 #define DATA_DIR        "./data/"

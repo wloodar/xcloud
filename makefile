@@ -8,6 +8,11 @@ server:
 	$(CC) -o build/xcloud-server $(CFLAGS) $(wildcard server/*.c) \
 		$(wildcard common/*.c)
 
+daemon:
+	rm -rf build
+	mkdir -p build
+	$(CC) -o build/daemon $(CFLAGS) $(wildcard daemon/*.c) $(wildcard common/*.c)
+
 client:
 	rm -rf build
 	mkdir -p build
@@ -16,7 +21,10 @@ client:
 run-server: server
 	./build/xcloud-server
 
+run-daemon: daemon
+	./build/daemon
+
 run-client: client
 	./build/xcloud
 
-.PHONY : server client
+.PHONY : server client daemon
