@@ -4,7 +4,10 @@
 #include <xcp.h>
 
 void die(const char *fmt, ...);
+
+xcp_userid string_to_userid(char *str);
 void userid_to_string(char *buf, xcp_userid userid);
+
 void dbytes(void *addr, size_t amount);
 
 /* Returns the user ID from the data/userid file. If the user ID does not exist,
@@ -15,5 +18,8 @@ xcp_userid get_userid();
 /* Save the given user ID into the data/userid file. */
 int save_userid(xcp_userid userid);
 
-
+/* Flip the bytes of ID and return them. */
 xcp_userid flip_bytes(xcp_userid id);
+
+/* Strip all whitespace from the right side of the string. */
+int rstrip(char *str);

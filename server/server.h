@@ -7,7 +7,7 @@
 struct user
 {
 	xcp_userid id;
-	char *name;
+	char name[];
 };
 
 struct userlist

@@ -1,6 +1,8 @@
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
+#include <ctype.h>
 #include "common.h"
 
 #define USERID_FILE     "data/userid"
@@ -23,6 +25,11 @@ void userid_to_string(char *buf, xcp_userid userid)
 {
 	for (int i = 0; i < 8; i++)
 		sprintf(buf + i * 2, "%02hhx", ((unsigned char *) &userid)[i]);
+}
+
+xcp_userid string_to_userid(char *str)
+{
+	return strtoull(str, NULL, 16);
 }
 
 void dbytes(void *addr, size_t amount)
@@ -87,4 +94,20 @@ xcp_userid flip_bytes(xcp_userid id)
 		right[i] = left[7 - i];
 
 	return new;
+}
+
+int rstrip(char *str)
+{
+   size_t strl, i;
+
+   strl = strlen(str);
+   i = strl - 1;
+   while (i > 0) {
+      if (isspace(str[i]))
+         str[i--] = 0;
+      else
+         break;
+   }
+
+   return 0;
 }

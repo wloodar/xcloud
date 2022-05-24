@@ -13,9 +13,12 @@ void save_user_id(xcp_userid user_id, char* name);
 
 int main()
 {
-    struct userlist userslist;
-    userlist_load(&userslist, "data/users");
-    // serve();
+	struct userlist userlist;
+	userlist_load(&userlist, "data/users");
+
+	serve();
+
+	userlist_free(&userlist);
 }
 
 void serve()
@@ -36,7 +39,7 @@ void serve()
     struct sockaddr_in client_addr;
     socklen_t client_socklen;
 
-    int client_sock = accept(server_sock, (struct sockaddr*) &client_addr, &client_socklen);
+	int client_sock = accept(server_sock, (struct sockaddr*) &client_addr, &client_socklen);
     puts("Client connected");
 
     struct xcp_packet buf;
