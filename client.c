@@ -1,6 +1,7 @@
 /* xcloud client
    Copyright (c) 2022 bellrise */
 
+#include <netinet/in.h>
 #include <sys/socket.h>
 #include <arpa/inet.h>
 #include <stdarg.h>
@@ -20,7 +21,7 @@
 
 struct __attribute__((packed)) userdata
 {
-	uint8_t userid[8];
+	xcp_userid userid;
 	int userid_ts;
 };
 
@@ -30,7 +31,6 @@ void dbytes(void *addr, size_t amount);
 void acquire_userid(int sock, struct userdata *userdata);
 int load_userdata(struct userdata *data);
 int save_userdata(struct userdata *data);
-
 
 
 int main(int argc, char **argv)
@@ -76,7 +76,8 @@ int save_userdata(struct userdata *data)
 {
 	FILE *f;
 
-	f = fopen(DATA_DIR "userid", "wb");
+	if (!(f = fopen(DATA_DIR "userid", "wb")))
+		die("Data folder cannot be found");
 	fwrite(data, sizeof(*data), 1, f);
 
 	fclose(f);
@@ -107,6 +108,7 @@ void acquire_userid(int sock, struct userdata *data)
 	packet->type = XCP_NEW;
 	packet->version = XCP_VERSION;
 
+	dbytes(packet, packet_size);
 	send(sock, packet, packet_size, 0);
 
 	/* Receive a user ID back. */
@@ -116,14 +118,13 @@ void acquire_userid(int sock, struct userdata *data)
 	if (res.type != XCP_NEW)
 		die("Invalid packet type received");
 
-	read(sock, data->userid, 8);
-	dbytes(data, sizeof(*data));
-
+	read(sock, &data->userid, sizeof(data->userid));
+	dbytes(&data->userid, 8);
+	data->userid = flip_bytes(data->userid);
 	data->userid_ts = time(NULL);
 
 	printf("User ID: ");
-	for (int i = 0; i < 8; i++)
-		printf("%02hhx", data->userid[i]);
+	dbytes(&data->userid, 8);
 	fputc('\n', stdout);
 
 #if 1

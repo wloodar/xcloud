@@ -46,3 +46,17 @@ void dbytes(void *addr, size_t amount)
    if (rest)
       putc('\n', stdout);
 }
+
+xcp_userid flip_bytes(xcp_userid id)
+{
+	xcp_userid new = 0;
+	uint8_t *left, *right;
+
+	left = (uint8_t *) &id;
+	right = (uint8_t *) &new;
+
+	for (int i = 0; i < 8; i++)
+		right[i] = left[7 - i];
+
+	return new;
+}
