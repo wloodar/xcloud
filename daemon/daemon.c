@@ -1,3 +1,4 @@
+#include <stdlib.h>
 #include <sys/socket.h>
 #include <arpa/inet.h>
 #include <stdio.h>
@@ -53,5 +54,13 @@ int proccess_socket_data(int server_sock)
 
     buf.size = ntohs(buf.size);
 
-    printf("%d", buf.size);
+    char *payload = malloc(buf.size + 1);
+    payload[buf.size] = 0;
+
+    read(server_sock, payload, buf.size);
+    printf("%s\n", payload);
+
+    free(payload);
+
+    return 1;
 }

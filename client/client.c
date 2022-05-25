@@ -32,24 +32,35 @@ int main(int argc, char **argv)
 	struct sockaddr_in addr;
 	xcp_userid userid;
 	int sock;
+    bool is_example_req = false;
 
 	if (argc < 2)
 		die("Missing argument: <host>");
+
+    for (int i = 0; i < argc; i++) {
+        if (!strcmp(argv[i], "-e")) {
+            is_example_req = true;
+            break;
+        }
+    }
 
 	sock = socket(AF_INET, SOCK_STREAM, 0);
 
 	addr.sin_addr.s_addr = inet_addr(argv[1]);
 	addr.sin_family = AF_INET;
-	addr.sin_port = htons(SERVER_PORT);
+
+    if (is_example_req) {
+        addr.sin_port = htons(DEAMON_PORT);
+    } else {
+        addr.sin_port = htons(SERVER_PORT);
+    }
 
 	if (connect(sock, (struct sockaddr *) &addr, sizeof(addr)) == -1)
 		die("Failed to connect");
 
-    for (int i = 0; i < argc; i++) {
-        if (!strcmp(argv[i], "-e")) {
-            send_example_raw(sock);
-            break;
-        }
+    if (is_example_req) {
+        send_example_raw(sock);
+        return 0;
     }
 
 	/* If we don't have any saved ID, ask the server for one. */
@@ -62,7 +73,7 @@ int main(int argc, char **argv)
 
 int send_example_raw(int sock)
 {
-    char lorem[10] = "Obsrajtus";
+    char lorem[6] = "Trains";
 
     struct xcp_packet packet;
     packet.type = XCP_RAW;
@@ -70,6 +81,7 @@ int send_example_raw(int sock)
     packet.version = XCP_VERSION;
 
     send(sock, &packet, sizeof(packet), 0);
+    send(sock, lorem, sizeof(lorem), 0);
 
     return 0;
 }
