@@ -6,6 +6,7 @@
 #include <arpa/inet.h>
 #include <stdarg.h>
 #include <string.h>
+#include <stdbool.h>
 #include <unistd.h>
 #include <stdlib.h>
 #include <stdio.h>
@@ -15,12 +16,14 @@
 #include <xcp.h>
 
 #define SERVER_PORT     5050
+#define DEAMON_PORT     7708
 #define DATA_DIR        "./data/"
 #define HOSTNAME        "test-laptop"
 
 
 void die(const char *fmt, ...);
 void dbytes(void *addr, size_t amount);
+int send_example_raw(int sock);
 xcp_userid acquire_userid(int sock);
 
 
@@ -42,12 +45,33 @@ int main(int argc, char **argv)
 	if (connect(sock, (struct sockaddr *) &addr, sizeof(addr)) == -1)
 		die("Failed to connect");
 
+    for (int i = 0; i < argc; i++) {
+        if (!strcmp(argv[i], "-e")) {
+            send_example_raw(sock);
+            break;
+        }
+    }
+
 	/* If we don't have any saved ID, ask the server for one. */
 	if (!(userid = get_userid()))
 		userid = acquire_userid(sock);
 
 	save_userid(userid);
 	close(sock);
+}
+
+int send_example_raw(int sock)
+{
+    char lorem[10] = "Obsrajtus";
+
+    struct xcp_packet packet;
+    packet.type = XCP_RAW;
+    packet.size = htons(sizeof(lorem));
+    packet.version = XCP_VERSION;
+
+    send(sock, &packet, sizeof(packet), 0);
+
+    return 0;
 }
 
 xcp_userid acquire_userid(int sock)
