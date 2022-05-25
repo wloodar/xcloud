@@ -13,7 +13,14 @@ enum xcp_packet_type
 {
     XCP_ACK,
     XCP_RAW,
-    XCP_NEW
+    XCP_NEW,
+	XCP_ERR
+};
+
+enum xcp_packet_err_type
+{
+	XCP_EOK,
+	XCP_ETAKEN,         /* username is already taken */
 };
 
 struct XCP_PACK xcp_packet
