@@ -11,22 +11,28 @@ void pass_package(int client_sock, struct xcp_packet buf);
 void assign_user_id(int client_sock, uint16_t size);
 void save_user_id(xcp_userid user_id, char* name);
 
-int main()
+int main(int argc, char **argv)
 {
 	struct userlist userlist;
-	userlist_load(&userlist, "data/users");
 
-	serve();
+	if (argc < 2)
+		die("Missing argument: <host>");
+
+	userlist_load(&userlist, "data/users");
+	serve(argv[1]);
 
 	userlist_free(&userlist);
 }
 
-void serve()
+void serve(char *host)
 {
     struct sockaddr_in addr;
-    addr.sin_addr.s_addr = inet_addr("192.168.111.201");
+    addr.sin_addr.s_addr = inet_addr(host);
     addr.sin_port = htons(XCP_SEVER_PORT);
     addr.sin_family = AF_INET;
+
+	if (addr.sin_addr.s_addr == (in_addr_t) -1)
+		die("Failed to parse address: %s", host);
 
     int server_sock = socket(AF_INET, SOCK_STREAM, 0);
 
