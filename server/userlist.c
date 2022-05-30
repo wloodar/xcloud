@@ -29,7 +29,6 @@ int userlist_load(struct userlist *list, char *file)
 
 		rstrip(line);
 
-		printf("%s\n", line);
 		username = strchr(line, ':');
 		*(username++) = 0;
 
@@ -51,7 +50,7 @@ int userlist_find_by_id(struct userlist *list, xcp_userid id)
 	for (int i = 0; i < list->size; i++) {
 		if (!list->users[i])
 			continue;
-		if (id == list->users[i]->id)
+		if (!memcmp(&id, &list->users[i]->id, 8))
 			return i;
 	}
 
@@ -123,8 +122,11 @@ int userlist_save(struct userlist *list, char *file)
 	if (!(f = fopen(file, "wb")))
 		die("Failed to open userlist file for writing");
 
-	for (int i = 0; i < list->size; i++)
-		fprintf(f, "%016zx:%s\n", list->users[i]->id, list->users[i]->name);
+	for (int i = 0; i < list->size; i++) {
+		char id[17];
+		userid_to_string(id, list->users[i]->id);
+		fprintf(f, "%s:%s\n", id, list->users[i]->name);
+	}
 
 	fclose(f);
 	return 0;

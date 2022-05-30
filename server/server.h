@@ -16,8 +16,14 @@ struct userlist
 	struct user **users;
 };
 
+/* Generate a new user ID. */
+xcp_userid generate_userid();
 
-void send_package(int client_sock, int type, void *buf, int size);
+/* Send a packet back to the user with the given type & payload. */
+void send_packet(int client_sock, int type, void *buf, int size);
+
+/* Send an error packet back to the user. */
+void send_packet_err(int client_sock, int err);
 
 /* Load the userlist from `file`. */
 int userlist_load(struct userlist *list, char *file);

@@ -16,9 +16,9 @@
 #include <xcp.h>
 
 #define SERVER_PORT     5050
-#define DEAMON_PORT     7708
+#define DAEMON_PORT     7708
 #define DATA_DIR        "./data/"
-#define HOSTNAME        "test-laptop"
+#define USERNAME        "test-laptop"
 
 
 void die(const char *fmt, ...);
@@ -44,13 +44,15 @@ int main(int argc, char **argv)
         }
     }
 
+	/* Setup connection info. */
+
 	sock = socket(AF_INET, SOCK_STREAM, 0);
 
 	addr.sin_addr.s_addr = inet_addr(argv[1]);
 	addr.sin_family = AF_INET;
 
     if (is_example_req) {
-        addr.sin_port = htons(DEAMON_PORT);
+        addr.sin_port = htons(DAEMON_PORT);
     } else {
         addr.sin_port = htons(SERVER_PORT);
     }
@@ -64,8 +66,11 @@ int main(int argc, char **argv)
     }
 
 	/* If we don't have any saved ID, ask the server for one. */
-	if (!(userid = get_userid()))
+	userid = get_userid();
+	if (!userid.b[0])
 		userid = acquire_userid(sock);
+	if (!userid.b[0])
+		die("Failed to acquire user ID");
 
 	save_userid(userid);
 	close(sock);
@@ -73,7 +78,7 @@ int main(int argc, char **argv)
 
 int send_example_raw(int sock)
 {
-    char lorem[6] = "Trains";
+    const char lorem[] = "lorem ipsum message";
 
     struct xcp_packet packet;
     packet.type = XCP_RAW;
@@ -88,43 +93,58 @@ int send_example_raw(int sock)
 
 xcp_userid acquire_userid(int sock)
 {
-	struct xcp_packet *packet;
-	struct xcp_packet_new *newpacket;
-	xcp_userid userid;
+	struct xcp_packet_new *newp;
+	struct xcp_packet p;
+	uint16_t payload_size;
+	xcp_userid id = {0};
 
-	const char *username = HOSTNAME;
-	int nusername = strlen(username);
-	int packet_size = sizeof(struct xcp_packet) + sizeof(struct xcp_packet_new)
-			+ nusername + 1;
+	/* Construct the payload */
 
-	packet = malloc(packet_size);
-	memset(packet, 0, packet_size);
+	const char *username = USERNAME;
+	int nusername = strlen(USERNAME);
 
-	newpacket = (struct xcp_packet_new *) packet->payload;
-	memcpy(newpacket->data, username, nusername);
+	payload_size = sizeof(struct xcp_packet_new) + nusername + 1;
 
-	newpacket->data[nusername] = 0;
-	newpacket->name = 0;
-	newpacket->img = -1;
+	newp = malloc(payload_size);
+	newp->name = 0;
+	newp->img = -1;
+	strncpy((char *) newp->data, username, nusername);
+	newp->data[nusername] = 0;
 
-	packet->size = htons(sizeof(struct xcp_packet_new) + nusername + 1);
-	packet->type = XCP_NEW;
-	packet->version = XCP_VERSION;
+	/* Construct the header */
 
-	dbytes(packet, packet_size);
-	send(sock, packet, packet_size, 0);
+	p.type = XCP_NEW;
+	p.version = XCP_VERSION;
+	p.size = payload_size;
+	memset(&p.userid, 0, sizeof(p.userid));
+
+	dbytes(&p, sizeof(p));
+	dbytes(newp, payload_size);
+	write(sock, &p, sizeof(p));
+	write(sock, newp, payload_size);
 
 	/* Receive a user ID back. */
 	struct xcp_packet res;
-
 	read(sock, &res, sizeof(res));
+
+	if (res.type == XCP_ERR) {
+		/* We got an error! */
+		uint8_t e;
+		if (res.size != 1) {
+			info_error("Invalid error packet format");
+			return id;
+		}
+
+		read(sock, &e, 1);
+		info_error("Error while acquiring user ID: %s", xcp_str_err(e));
+		return id;
+	}
+
 	if (res.type != XCP_NEW)
 		die("Invalid packet type received");
 
-	read(sock, &userid, sizeof(userid));
-	userid = flip_bytes(userid);
+	read(sock, &id, sizeof(id));
+	free(newp);
 
-	free(packet);
-
-	return userid;
+	return id;
 }
