@@ -50,6 +50,7 @@ enum xcp_packet_err_type
 	XCP_EOK,                /* everything is fine */
 	XCP_ETAKEN,             /* username is already taken */
 	XCP_ESIZE,              /* unsuspected payload size */
+	XCP_ETYPE,              /* invalid packet type */
 };
 
 struct __xcp_packed xcp_packet

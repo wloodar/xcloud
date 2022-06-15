@@ -16,7 +16,8 @@
 
 void serve();
 void assign_user_id(int client_sock, uint16_t size);
-
+void recv_raw(int client_sock, uint16_t size);
+void read_to_null(int client_sock, uint16_t size);
 
 struct thread_data
 {
@@ -81,7 +82,7 @@ void serve(char *host)
 			continue;
 		}
 
-		inform("Client connected with sock=%d, delegating to thread.", client);
+		inform("Client (\033[92m%d\033[0m) connected", client);
 
 		/* Make a new struct for the thread. */
 		struct thread_data *data = malloc(sizeof(struct thread_data));
@@ -99,22 +100,36 @@ void *thread_handle_client(void *client_)
 	struct thread_data *client = client_;
 	struct xcp_packet buf;
 
-	/* Read the first packet header from the user. */
+	while (1) {
+		/* Read the first packet header from the user. */
 
-	info("Handling sock=%d", client->sock);
+		if (!read(client->sock, &buf, sizeof(buf))) {
+			inform("Client (\033[91m%d\033[0m) disconnected", client->sock);
+			goto end;
+		}
 
-	read(client->sock, &buf, sizeof(buf));
-	buf.size = ntohs(buf.size);
+		buf.size = ntohs(buf.size);
 
-	info("Received packet: type=%s, version=%d, size=%d",
-			xcp_str_ptype(buf.type), buf.version, buf.size);
-	dbytes(&buf, sizeof(buf));
+		info("Received packet: type=%s, version=%d, size=%d",
+				xcp_str_ptype(buf.type), buf.version, buf.size);
 
-	switch (buf.type) {
-		case XCP_NEW:
-			assign_user_id(client->sock, buf.size);
+		switch (buf.type) {
+			case XCP_NEW:
+				assign_user_id(client->sock, buf.size);
+				break;
+			case XCP_RAW:
+				recv_raw(client->sock, buf.size);
+				break;
+			default:
+				/* If the client sends an incorrect packet type, we just want to
+				   send an error packet and close the connection. */
+				send_packet_err(client->sock, XCP_ETYPE);
+				close(client->sock);
+				goto end;
+		}
 	}
 
+end:
 	free(client);
 	return NULL;
 }
@@ -159,6 +174,27 @@ void assign_user_id(int client_sock, uint16_t size)
 	pthread_mutex_unlock(&glob_userlist_lock);
 
 	free(payload);
+}
+
+void recv_raw(int client_sock, uint16_t size)
+{
+	uint8_t *buf;
+
+	buf = malloc(size);
+
+	read(client_sock, buf, size);
+	dbytes(buf, size);
+
+	for (int i = 0; i < size; i++) {
+		if (buf[i] > 0x20 && buf[i] < 0x7f)
+			fputc(buf[i], stdout);
+		else
+			fputc('.', stdout);
+	}
+
+	fputc('\n', stdout);
+
+	free(buf);
 }
 
 xcp_userid generate_userid()

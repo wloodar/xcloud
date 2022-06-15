@@ -72,6 +72,8 @@ int main(int argc, char **argv)
 	if (!userid.b[0])
 		die("Failed to acquire user ID");
 
+	send_example_raw(sock);
+
 	save_userid(userid);
 	close(sock);
 }
