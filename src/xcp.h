@@ -40,13 +40,11 @@ typedef struct
 
 typedef struct
 {
-    xcp_packet_header header;
     char username[256];
 } xcp_packet_hello;
 
 typedef struct
 {
-    xcp_packet_header header;
     char dest[256];
     uint16_t message_len;
     /* message here */
