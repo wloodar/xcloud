@@ -6,3 +6,5 @@ xcloud
 xcloud-server
 .clang-format
 compile_flags.txt
+
+.vscode
