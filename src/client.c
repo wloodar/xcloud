@@ -47,9 +47,42 @@ int main(int argc, char **argv)
         die("The username \"%s\" is already taken.", username);
     }
 
-    list_active_users(sock);
+    show_commands_list(username);
+
+    while (1) {
+        printf("\n> ");
+        char command[256];
+        fgets(command, 256, stdin);
+        rstrip(command);
+
+        printf("\n");
+
+        if (!strcmp(command, "users")) {
+            list_active_users(sock, username);
+        }
+
+        if (!strncmp(command, "send", 4)) {
+            xcp_packet_reply reply = send_message(sock, command, command + 5);
+            if (reply.status == XS_OK) {
+                printf("Message successfully sent.\n");
+            }
+        }
+
+        if (!strcmp(command, "commands")) {
+            show_commands_list(username);
+        }
+    }
 
     return 0;
+}
+
+void show_commands_list(char *username) {
+    printf("|----------------------------------------\n|\n");
+    printf("|   Hello, %s! Here's a list of available commands:\n|\n|----------------------------------------\n|\n", username);
+    printf("|   users       -   Show active users\n");
+    printf("|   send <msg>  -   Send message\n");
+    printf("|   commands    -   List of all available commands\n");
+    printf("|\n|----------------------------------------\n\n");
 }
 
 void initialize() {
@@ -107,14 +140,21 @@ xcp_packet_reply send_hello(int sock, char *username)
     return reply;
 }
 
-void list_active_users(int sock) {
-    strlist users = get_active_users(sock);
+void list_active_users(int sock, char *username) {
+    strlist users = get_active_users(sock, username);
+
+    if (users.len == 0) {
+        printf("There's no active users.\n");
+        return;
+    }
+
+    printf("Active users:\n");
     for (int i = 0; i < users.len; i++) {
         printf("%s\n", users.strings[i]);
     }
 }
 
-strlist get_active_users(int sock) 
+strlist get_active_users(int sock, char *username)
 {
     send_header(sock, XCP_LISTUSERS);
 
@@ -123,12 +163,17 @@ strlist get_active_users(int sock)
         .strings = NULL,
         .len = 0
     };
-    
+
     read(sock, &amount, sizeof(int));
 
     for (int i = 0; i < amount; i++) {
         char *buf = malloc(256);
         read(sock, buf, 256);
+
+        if (!strcmp(buf, username)) {
+            continue;
+        }
+
         strlist_append(&users, buf);
     }
 
@@ -144,6 +189,7 @@ xcp_packet_reply send_message(int sock, char dest[256], char *message)
     p_sendmsg.message_len = strlen(message);
 
     write(sock, &p_sendmsg, sizeof(p_sendmsg));
+    write(sock, message, strlen(message));
 
     xcp_packet_reply reply;
     read(sock, &reply, sizeof(reply));
