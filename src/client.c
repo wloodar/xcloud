@@ -56,12 +56,18 @@ int main(int argc, char **argv)
         fgets(command, 256, stdin);
         rstrip(command);
 
+        if (command[0] == 0) {
+            fputs("\033[1F\r", stdout);
+            continue;
+        }
+
         if (!strcmp(command, "/users")) {
             list_active_users(sock, username);
         } else if (!strcmp(command, "/commands")) {
             show_commands_list(username);
         } else {
             char empty[256];
+            fputs("\033[1F\r", stdout);
             xcp_packet_reply reply = send_message(sock, empty, command);
             if (reply.status != XS_OK) {
                 printf("Message not sent.\n");
@@ -77,7 +83,6 @@ void show_commands_list(char *username)
     printf("|----------------------------------------\n|\n");
     printf("|   Hello, %s! Here's a list of available commands:\n|\n|----------------------------------------\n|\n", username);
     printf("|   users       -   Show active users\n");
-    printf("|   send <msg>  -   Send message\n");
     printf("|   commands    -   List of all available commands\n");
     printf("|\n|----------------------------------------\n\n\n");
 }
@@ -143,7 +148,11 @@ void *listening(void *_args)
         message[p_message_info.message_len] = 0;
 
         pthread_mutex_lock(get_console_lock());
-        printf("[%s]: %s\n", p_message_info.dest, message);
+        if (!strcmp(p_message_info.dest, args->username)) {
+            printf("[\033[93m%s\033[0m]: %s\n", p_message_info.dest, message);
+        } else {
+            printf("[\033[32m%s\033[0m]: %s\n", p_message_info.dest, message);
+        }
         pthread_mutex_unlock(get_console_lock());
     }
 

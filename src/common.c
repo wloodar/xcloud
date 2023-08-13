@@ -33,11 +33,11 @@ void die(const char *fmt, ...)
 
 int rstrip(char *str)
 {
-    size_t strl, i;
+    ssize_t strl, i;
 
     strl = strlen(str);
     i = strl - 1;
-    while (i > 0) {
+    while (i >= 0) {
         if (isspace(str[i]))
             str[i--] = 0;
         else
