@@ -10,7 +10,10 @@ void die(const char *fmt, ...);
 /* Strip all whitespace from the right side of the string. */
 int rstrip(char *str);
 
-typedef struct {
+typedef struct
+{
     char **strings;
     int len;
 } strlist;
+
+void strlist_append(strlist *list, char *string);
