@@ -141,6 +141,92 @@ int user_id(const char *name)
     return 0;
 }
 
+struct endpoint
+{
+    char username[256];
+    int sock;
+};
+
+struct endpoints
+{
+    struct endpoint **clients;
+    int n_clients;
+    pthread_mutex_t lock;
+};
+
+static struct endpoints endpoints = {NULL, 0, PTHREAD_MUTEX_INITIALIZER};
+
+void add_client_endpoint(int sock, const char *username)
+{
+    struct endpoint *p;
+
+    pthread_mutex_lock(&endpoints.lock);
+
+    endpoints.clients = realloc(
+        endpoints.clients, sizeof(struct endpoint) * (endpoints.n_clients + 1));
+    endpoints.clients[endpoints.n_clients] = calloc(1, sizeof(struct endpoint));
+    p = endpoints.clients[endpoints.n_clients++];
+
+    p->sock = sock;
+    strcpy(p->username, username);
+
+    info("added `%s` as endpoint (n=%d)", username, endpoints.n_clients);
+
+    pthread_mutex_unlock(&endpoints.lock);
+}
+
+void send_to(int sock, const char *from, int len, const char *content)
+{
+    xcp_packet_header header;
+    xcp_packet_sendmsg msg;
+
+    header.version = XCP_VERSION;
+    header.type = XCP_SENDMSG;
+
+    msg.message_len = len;
+    strncpy(msg.dest, from, 256);
+
+    write(sock, &header, sizeof(header));
+    write(sock, &msg, sizeof(msg));
+    write(sock, content, len);
+}
+
+void send_to_all_endpoints(const char *from, int len, const char *content)
+{
+    struct endpoint *p;
+    pthread_mutex_lock(&endpoints.lock);
+
+    for (int i = 0; i < endpoints.n_clients; i++) {
+        p = endpoints.clients[i];
+        send_to(p->sock, from, len, content);
+    }
+
+    pthread_mutex_unlock(&endpoints.lock);
+}
+
+void convert_thread(struct client_data *client)
+{
+    /* Add this client to the endpoint list, and remove this thread+socket from
+       the connected user list */
+
+    xcp_packet_convert payload;
+    read(client->sock, &payload, sizeof(payload));
+
+    add_client_endpoint(client->sock, payload.username);
+
+    if (client->user_id)
+        user_del(client->user_id);
+
+    /* Send confirmation */
+
+    xcp_packet_reply reply;
+    reply.status = XS_OK;
+
+    write(client->sock, &reply, sizeof(reply));
+
+    pthread_exit(NULL);
+}
+
 void handle_hello(struct client_data *client)
 {
     xcp_packet_reply reply;
@@ -158,24 +244,45 @@ void handle_hello(struct client_data *client)
     /* Not logged in */
     if (user == 0) {
         client->user_id = user_add(packet.username)->id;
-        info("[%d] client connected as `%s`", client->user_id, packet.username);
+        info("[%d] HELLO client connected as `%s`", client->user_id,
+             packet.username);
         reply.status = XS_OK;
     } else {
-        info("client requested existing name `%s`", packet.username);
+        info("[?] HELLO client requested existing name `%s`", packet.username);
         reply.status = XS_NAMETAKEN;
     }
 
     write(client->sock, &reply, sizeof(reply));
 }
 
+void handle_sendmsg(struct client_data *client)
+{
+    xcp_packet_sendmsg msg;
+    char *content;
+
+    read(client->sock, &msg, sizeof(msg));
+    content = calloc(msg.message_len + 1, 1);
+    read(client->sock, content, msg.message_len);
+
+    info("[%d] %s wrote: %.*s", client->user_id,
+         user_find(client->user_id)->name, msg.message_len, content);
+
+    xcp_packet_reply reply;
+    reply.status = XS_OK;
+
+    write(client->sock, &reply, sizeof(reply));
+
+    /* TEMP: send message to all */
+    send_to_all_endpoints(user_find(client->user_id)->name, msg.message_len,
+                          content);
+}
+
 void handle_listusers(struct client_data *client)
 {
-    info("[%d] LISTUSERS", client->user_id);
-
     char buf[256];
     int n = user_count();
 
-    info("[%d] sending %d users", client->user_id, user_count());
+    info("[%d] LISTUSERS sending %d users", client->user_id, user_count());
 
     /* amount */
     write(client->sock, &n, sizeof(int));
@@ -195,7 +302,7 @@ void *serve_client(void *_client_data)
 {
     struct client_data *client = _client_data;
 
-    info("client connected");
+    info("[?] client connected");
 
     while (1) {
         xcp_packet_header header;
@@ -209,8 +316,14 @@ void *serve_client(void *_client_data)
         case XCP_HELLO:
             handle_hello(client);
             break;
+        case XCP_SENDMSG:
+            handle_sendmsg(client);
+            break;
         case XCP_LISTUSERS:
             handle_listusers(client);
+            break;
+        case XCP_CONVERT:
+            convert_thread(client);
             break;
         default:
             goto disconnect;
@@ -223,7 +336,7 @@ disconnect:
              user_find(client->user_id)->name);
         user_del(client->user_id);
     } else {
-        info("disconnect unnamed");
+        info("[?] disconnect");
     }
 
     close(client->sock);
@@ -240,6 +353,9 @@ int open_server_port(const char *ip)
     addr.sin_family = AF_INET;
 
     server = socket(AF_INET, SOCK_STREAM, 0);
+
+    int optval = 1;
+    setsockopt(server, SOL_SOCKET, SO_REUSEADDR, &optval, sizeof optval);
 
     if (bind(server, (struct sockaddr *) &addr, sizeof(addr)) == -1)
         die("failed to bind()");
