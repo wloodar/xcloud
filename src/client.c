@@ -47,10 +47,7 @@ int main(int argc, char **argv)
         die("The username \"%s\" is already taken.", username);
     }
 
-    strlist users = get_active_users(sock);
-    for (int i = 0; i < users.len; i++) {
-        printf("%s\n", users.strings[i]);
-    }
+    list_active_users(sock);
 
     return 0;
 }
@@ -110,11 +107,23 @@ xcp_packet_reply send_hello(int sock, char *username)
     return reply;
 }
 
-strlist get_active_users(int sock) {
+void list_active_users(int sock) {
+    strlist users = get_active_users(sock);
+    for (int i = 0; i < users.len; i++) {
+        printf("%s\n", users.strings[i]);
+    }
+}
+
+strlist get_active_users(int sock) 
+{
     send_header(sock, XCP_LISTUSERS);
 
     int amount;
-    strlist users;
+    strlist users = {
+        .strings = NULL,
+        .len = 0
+    };
+    
     read(sock, &amount, sizeof(int));
 
     for (int i = 0; i < amount; i++) {
@@ -124,4 +133,20 @@ strlist get_active_users(int sock) {
     }
 
     return users;
+}
+
+xcp_packet_reply send_message(int sock, char dest[256], char *message)
+{
+    send_header(sock, XCP_SENDMSG);
+
+    xcp_packet_sendmsg p_sendmsg;
+    strcpy(p_sendmsg.dest, dest);
+    p_sendmsg.message_len = strlen(message);
+
+    write(sock, &p_sendmsg, sizeof(p_sendmsg));
+
+    xcp_packet_reply reply;
+    read(sock, &reply, sizeof(reply));
+
+    return reply;
 }
