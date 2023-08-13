@@ -1,1 +1,9 @@
+#pragma once
+
+/* Show information & error messages in the terminal. die() shows an error
+   and immediately closes the program. info_error, inform & info are all
+   receiding levels of importance. */
 void die(const char *fmt, ...);
+
+/* Strip all whitespace from the right side of the string. */
+int rstrip(char *str);

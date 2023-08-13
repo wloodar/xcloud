@@ -1,6 +1,8 @@
 #include <stdio.h>
 #include <stdarg.h>
 #include <stdlib.h>
+#include <ctype.h>
+#include <string.h>
 
 #include "common.h"
 
@@ -15,4 +17,20 @@ void die(const char *fmt, ...)
 
    va_end(args);
    exit(1);
+}
+
+int rstrip(char *str)
+{
+   size_t strl, i;
+
+   strl = strlen(str);
+   i = strl - 1;
+   while (i > 0) {
+      if (isspace(str[i]))
+         str[i--] = 0;
+      else
+         break;
+   }
+
+   return 0;
 }

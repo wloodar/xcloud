@@ -8,6 +8,8 @@
 #include <netinet/in.h>
 #include <sys/socket.h>
 #include <arpa/inet.h>
+#include <unistd.h>
+#include <string.h>
 
 #include "common.h"
 #include "xcp.h"
@@ -40,6 +42,11 @@ int main(int argc, char **argv)
         die("Couldn't connect to the xcloud server.");
     }
 
+    xcp_packet_reply hello_reply = send_hello(sock, username);
+    if (hello_reply.status == XS_NAMETAKEN) {
+        die("The username \"%s\" is already taken.", username);
+    }
+
     return 0;
 }
 
@@ -61,6 +68,7 @@ char *get_username()
 
     char *name = malloc(256);
     fgets(name, 256, f);
+    rstrip(name);
 
     fclose(f);
 
@@ -80,4 +88,22 @@ char *set_username()
     fclose(fr);
 
     return name;
+}
+
+xcp_packet_reply send_hello(int sock, char *username) {
+    xcp_packet_header hello_header;
+    hello_header.type = XCP_HELLO;
+    hello_header.version = XCP_VERSION;
+
+    write(sock, &hello_header, sizeof(hello_header));
+    
+    xcp_packet_hello p_hello;
+    strcpy(p_hello.username, username);
+
+    write(sock, &p_hello, sizeof(p_hello));
+
+    xcp_packet_reply reply;
+    read(sock, &reply, sizeof(reply));
+
+    return reply;
 }
