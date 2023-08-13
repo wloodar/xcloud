@@ -6,6 +6,7 @@
 #include <arpa/inet.h>
 #include <netinet/in.h>
 #include <pthread.h>
+#include <stdarg.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -133,7 +134,23 @@ void handle_hello(struct client_data *client)
     write(client->sock, &reply, sizeof(reply));
 }
 
-void handle_listusers(struct client_data *client) { }
+void handle_listusers(struct client_data *client)
+{
+    char buf[256];
+
+    /* amount */
+    write(client->sock, &users.nusers, sizeof(int));
+
+    /* user names */
+    for (int i = 0; i < users.nusers; i++) {
+        if (!users.users[i].name)
+            continue;
+
+        memset(buf, 0, 256);
+        strcpy(buf, users.users[i].name);
+        write(client->sock, buf, 256);
+    }
+}
 
 void *serve_client(void *_client_data)
 {
