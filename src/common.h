@@ -1,5 +1,7 @@
 #pragma once
 
+#include "xcp.h"
+
 void send_header(int sock, xcp_packet_type type);
 
 /* Show information & error messages in the terminal. die() shows an error

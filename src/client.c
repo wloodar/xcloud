@@ -49,7 +49,7 @@ int main(int argc, char **argv)
 
     strlist users = get_active_users(sock);
     for (int i = 0; i < users.len; i++) {
-        printf(users[i]);
+        printf("%s\n", users.strings[i]);
     }
 
     return 0;
@@ -114,5 +114,14 @@ strlist get_active_users(int sock) {
     send_header(sock, XCP_LISTUSERS);
 
     int amount;
+    strlist users;
     read(sock, &amount, sizeof(int));
+
+    for (int i = 0; i < amount; i++) {
+        char *buf = malloc(256);
+        read(sock, buf, 256);
+        strlist_append(&users, buf);
+    }
+
+    return users;
 }
