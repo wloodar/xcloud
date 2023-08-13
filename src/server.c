@@ -170,15 +170,17 @@ void add_client_endpoint(int sock, const char *username)
     p->sock = sock;
     strcpy(p->username, username);
 
-    info("added `%s` as endpoint (n=%d)", username, endpoints.n_clients);
+    info("ENDPOINT open %d (%s)", sock, username);
 
     pthread_mutex_unlock(&endpoints.lock);
 }
 
-void send_to(int sock, const char *from, int len, const char *content)
+int send_to(int sock, const char *from, int len, const char *content)
 {
     xcp_packet_header header;
     xcp_packet_sendmsg msg;
+
+    info("SENDTO fd=%d", sock);
 
     header.version = XCP_VERSION;
     header.type = XCP_SENDMSG;
@@ -186,9 +188,15 @@ void send_to(int sock, const char *from, int len, const char *content)
     msg.message_len = len;
     strncpy(msg.dest, from, 256);
 
+    char c;
+    if (recv(sock, &c, 1, MSG_PEEK) <= 0)
+        return 1;
+
     write(sock, &header, sizeof(header));
     write(sock, &msg, sizeof(msg));
     write(sock, content, len);
+
+    return 0;
 }
 
 void send_to_all_endpoints(const char *from, int len, const char *content)
@@ -198,7 +206,14 @@ void send_to_all_endpoints(const char *from, int len, const char *content)
 
     for (int i = 0; i < endpoints.n_clients; i++) {
         p = endpoints.clients[i];
-        send_to(p->sock, from, len, content);
+        if (!p)
+            continue;
+        if (send_to(p->sock, from, len, content) == 1) {
+            info("ENDPOINT %d closed", p->sock);
+            close(p->sock);
+            free(endpoints.clients[i]);
+            endpoints.clients[i] = NULL;
+        }
     }
 
     pthread_mutex_unlock(&endpoints.lock);
