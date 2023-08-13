@@ -3,10 +3,12 @@
 #include "xcp.h"
 
 void initialize();
+void listening_thread(char *host, char *username);
+void *listening(void *host);
 char *get_username();
 char *set_username();
 
-xcp_packet_reply send_hello(int sock, char *username);
+xcp_packet_reply send_hello(int sock, char *username, xcp_packet_type type);
 
 void list_active_users(int sock, char *username);
 strlist get_active_users(int sock, char *username);
