@@ -4,7 +4,17 @@
 #include <ctype.h>
 #include <string.h>
 
+#include "xcp.h"
 #include "common.h"
+
+void send_header(int sock, xcp_packet_type type)
+{
+    xcp_packet_header p_header;
+    p_header.type = type;
+    p_header.version = XCP_VERSION;
+
+    write(sock, &p_header, sizeof(p_header));
+}
 
 void die(const char *fmt, ...)
 {

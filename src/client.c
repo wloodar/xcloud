@@ -47,6 +47,11 @@ int main(int argc, char **argv)
         die("The username \"%s\" is already taken.", username);
     }
 
+    strlist users = get_active_users(sock);
+    for (int i = 0; i < users.len; i++) {
+        printf(users[i]);
+    }
+
     return 0;
 }
 
@@ -90,12 +95,9 @@ char *set_username()
     return name;
 }
 
-xcp_packet_reply send_hello(int sock, char *username) {
-    xcp_packet_header hello_header;
-    hello_header.type = XCP_HELLO;
-    hello_header.version = XCP_VERSION;
-
-    write(sock, &hello_header, sizeof(hello_header));
+xcp_packet_reply send_hello(int sock, char *username) 
+{
+    send_header(sock, XCP_HELLO);
     
     xcp_packet_hello p_hello;
     strcpy(p_hello.username, username);
@@ -106,4 +108,11 @@ xcp_packet_reply send_hello(int sock, char *username) {
     read(sock, &reply, sizeof(reply));
 
     return reply;
+}
+
+strlist get_active_users(int sock) {
+    send_header(sock, XCP_LISTUSERS);
+
+    int amount;
+    read(sock, &amount, sizeof(int));
 }
