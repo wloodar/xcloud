@@ -52,26 +52,20 @@ int main(int argc, char **argv)
 
     show_commands_list(username);
     while (1) {
-        printf("\n> ");
         char command[256];
         fgets(command, 256, stdin);
         rstrip(command);
 
-        printf("\n");
-
-        if (!strcmp(command, "users")) {
+        if (!strcmp(command, "/users")) {
             list_active_users(sock, username);
-        }
-
-        if (!strncmp(command, "send", 4)) {
-            xcp_packet_reply reply = send_message(sock, command, command + 5);
-            if (reply.status == XS_OK) {
-                printf("Message successfully sent.\n");
-            }
-        }
-
-        if (!strcmp(command, "commands")) {
+        } else if (!strcmp(command, "/commands")) {
             show_commands_list(username);
+        } else {
+            char empty[256];
+            xcp_packet_reply reply = send_message(sock, empty, command);
+            if (reply.status != XS_OK) {
+                printf("Message not sent.\n");
+            }
         }
     }
 
@@ -85,7 +79,7 @@ void show_commands_list(char *username)
     printf("|   users       -   Show active users\n");
     printf("|   send <msg>  -   Send message\n");
     printf("|   commands    -   List of all available commands\n");
-    printf("|\n|----------------------------------------\n\n");
+    printf("|\n|----------------------------------------\n\n\n");
 }
 
 void initialize()
@@ -136,7 +130,9 @@ void *listening(void *_args)
 
     while(1) {
         xcp_packet_header l_header;
-        read(l_sock, &l_header, sizeof(l_header));
+        if (read(l_sock, &l_header, sizeof(l_header)) == 0) {
+            break;
+        }
 
         xcp_packet_sendmsg p_message_info;
         read(l_sock, &p_message_info, sizeof(p_message_info));
@@ -145,8 +141,13 @@ void *listening(void *_args)
         read(l_sock, message, p_message_info.message_len);
 
         message[p_message_info.message_len] = 0;
-        printf("[%s]: %s\n\n", p_message_info.dest, message);
+
+        pthread_mutex_lock(get_console_lock());
+        printf("[%s]: %s\n", p_message_info.dest, message);
+        pthread_mutex_unlock(get_console_lock());
     }
+
+    close(l_sock);
 }
 
 char *get_username()
@@ -250,4 +251,10 @@ xcp_packet_reply send_message(int sock, char dest[256], char *message)
     read(sock, &reply, sizeof(reply));
 
     return reply;
+}
+
+pthread_mutex_t *get_console_lock()
+{
+    static pthread_mutex_t mut;
+    return &mut;
 }
