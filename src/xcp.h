@@ -16,8 +16,8 @@
 typedef enum
 {
     XCP_HELLO, /* hello to server */
-    XCP_POLL,
     XCP_SENDMSG,
+    XCP_LISTUSERS,
 } xcp_packet_type;
 
 typedef enum
