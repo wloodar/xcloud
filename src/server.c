@@ -21,7 +21,7 @@ struct client_data
     socklen_t len;
     int sock;
     pthread_t thread;
-    struct user *user;
+    int user_id;
 };
 
 static void info(const char *fmt, ...);
@@ -78,6 +78,18 @@ struct userlist
 
 static struct userlist users = {NULL, 0};
 
+int user_count()
+{
+    int n = 0;
+
+    for (int i = 0; i < users.nusers; i++) {
+        if (users.users[i].name)
+            n++;
+    }
+
+    return n;
+}
+
 struct user *user_add(const char *name)
 {
     struct user *user;
@@ -92,6 +104,28 @@ struct user *user_add(const char *name)
     } while (!user->id);
 
     return user;
+}
+
+void user_del(int id)
+{
+    for (int i = 0; i < users.nusers; i++) {
+        if (!users.users[i].name)
+            continue;
+        if (users.users[i].id == id)
+            users.users[i].name = NULL;
+    }
+}
+
+struct user *user_find(int id)
+{
+    for (int i = 0; i < users.nusers; i++) {
+        if (!users.users[i].name)
+            continue;
+        if (users.users[i].id == id)
+            return &users.users[i];
+    }
+
+    return NULL;
 }
 
 /* Returns user id or 0 if not found. */
@@ -123,8 +157,8 @@ void handle_hello(struct client_data *client)
 
     /* Not logged in */
     if (user == 0) {
-        client->user = user_add(packet.username);
-        info("client connected as `%s`", packet.username);
+        client->user_id = user_add(packet.username)->id;
+        info("[%d] client connected as `%s`", client->user_id, packet.username);
         reply.status = XS_OK;
     } else {
         info("client requested existing name `%s`", packet.username);
@@ -136,10 +170,15 @@ void handle_hello(struct client_data *client)
 
 void handle_listusers(struct client_data *client)
 {
+    info("[%d] LISTUSERS", client->user_id);
+
     char buf[256];
+    int n = user_count();
+
+    info("[%d] sending %d users", client->user_id, user_count());
 
     /* amount */
-    write(client->sock, &users.nusers, sizeof(int));
+    write(client->sock, &n, sizeof(int));
 
     /* user names */
     for (int i = 0; i < users.nusers; i++) {
@@ -156,7 +195,7 @@ void *serve_client(void *_client_data)
 {
     struct client_data *client = _client_data;
 
-    info("%s: client connected", inet_ntoa(client->addr.sin_addr));
+    info("client connected");
 
     while (1) {
         xcp_packet_header header;
@@ -176,14 +215,16 @@ void *serve_client(void *_client_data)
         default:
             goto disconnect;
         }
-
-        handle_hello(client);
     }
 
 disconnect:
-    info("%s: disconnect `%s`", inet_ntoa(client->addr.sin_addr),
-         client->user->name);
-    client->user->name = NULL;
+    if (client->user_id) {
+        info("[%d] disconnect `%s`", client->user_id,
+             user_find(client->user_id)->name);
+        user_del(client->user_id);
+    } else {
+        info("disconnect unnamed");
+    }
 
     close(client->sock);
     return NULL;
