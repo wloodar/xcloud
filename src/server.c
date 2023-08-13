@@ -5,7 +5,9 @@
 
 #include <arpa/inet.h>
 #include <netinet/in.h>
+#include <poll.h>
 #include <pthread.h>
+#include <signal.h>
 #include <stdarg.h>
 #include <stdbool.h>
 #include <stdio.h>
@@ -39,6 +41,9 @@ int main(int argc, char **argv)
     }
 
     srand(time(NULL));
+
+    /* Stop the sockets from signalling. */
+    signal(SIGPIPE, SIG_IGN);
 
     /* Open the server port & start listening. */
 
@@ -179,8 +184,7 @@ int send_to(int sock, const char *from, int len, const char *content)
 {
     xcp_packet_header header;
     xcp_packet_sendmsg msg;
-
-    info("SENDTO fd=%d", sock);
+    ssize_t bytes;
 
     header.version = XCP_VERSION;
     header.type = XCP_SENDMSG;
@@ -188,13 +192,13 @@ int send_to(int sock, const char *from, int len, const char *content)
     msg.message_len = len;
     strncpy(msg.dest, from, 256);
 
-    char c;
-    if (recv(sock, &c, 1, MSG_PEEK) <= 0)
+    bytes = write(sock, &header, sizeof(header));
+    if (bytes == -1)
         return 1;
-
-    write(sock, &header, sizeof(header));
-    write(sock, &msg, sizeof(msg));
-    write(sock, content, len);
+    if (write(sock, &msg, sizeof(msg)) < sizeof(msg))
+        return 1;
+    if (write(sock, content, len) < len)
+        return 1;
 
     return 0;
 }
@@ -202,7 +206,6 @@ int send_to(int sock, const char *from, int len, const char *content)
 void send_to_all_endpoints(const char *from, int len, const char *content)
 {
     struct endpoint *p;
-    pthread_mutex_lock(&endpoints.lock);
 
     for (int i = 0; i < endpoints.n_clients; i++) {
         p = endpoints.clients[i];
@@ -215,8 +218,6 @@ void send_to_all_endpoints(const char *from, int len, const char *content)
             endpoints.clients[i] = NULL;
         }
     }
-
-    pthread_mutex_unlock(&endpoints.lock);
 }
 
 void convert_thread(struct client_data *client)
@@ -316,8 +317,6 @@ void handle_listusers(struct client_data *client)
 void *serve_client(void *_client_data)
 {
     struct client_data *client = _client_data;
-
-    info("[?] client connected");
 
     while (1) {
         xcp_packet_header header;
