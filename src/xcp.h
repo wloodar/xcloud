@@ -15,9 +15,10 @@
 
 typedef enum
 {
-    XCP_HELLO, /* hello to server */
-    XCP_SENDMSG,
-    XCP_LISTUSERS,
+    XCP_HELLO,     /* hello to server */
+    XCP_SENDMSG,   /* send a message */
+    XCP_LISTUSERS, /* list connected users */
+    XCP_CONVERT,   /* convert this connection into a listening one */
 } xcp_packet_type;
 
 typedef enum
@@ -42,6 +43,11 @@ typedef struct
 {
     char username[256];
 } xcp_packet_hello;
+
+typedef struct
+{
+    char username[256];
+} xcp_packet_convert;
 
 typedef struct
 {
