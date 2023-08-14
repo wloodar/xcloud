@@ -1,26 +1,28 @@
 /* xcloud client
    Copyright (c) 2023 wloodar */
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <sys/stat.h>
-#include <errno.h>
-#include <netinet/in.h>
-#include <sys/socket.h>
-#include <arpa/inet.h>
-#include <unistd.h>
-#include <string.h>
-#include <pthread.h>
+#include "client.h"
 
 #include "common.h"
+#include "gui.h"
 #include "xcp.h"
-#include "client.h"
+
+#include <arpa/inet.h>
+#include <errno.h>
+#include <netinet/in.h>
+#include <pthread.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/socket.h>
+#include <sys/stat.h>
+#include <unistd.h>
 
 char config_path[64];
 char config_path_username[64];
 
 int main(int argc, char **argv)
-{  
+{
     if (argc < 2) {
         die("Missing argument: <host>");
     }
@@ -28,7 +30,7 @@ int main(int argc, char **argv)
     // Setup crucial parts of client
     initialize();
 
-    char* username = get_username();
+    char *username = get_username();
 
     listening_thread(argv[1], username);
 
@@ -52,12 +54,10 @@ int main(int argc, char **argv)
 
     show_commands_list(username);
     while (1) {
-        char command[256];
-        fgets(command, 256, stdin);
-        rstrip(command);
+        char *command = gui_input();
 
         if (command[0] == 0) {
-            fputs("\033[1F\r", stdout);
+            free(command);
             continue;
         }
 
@@ -67,24 +67,33 @@ int main(int argc, char **argv)
             show_commands_list(username);
         } else {
             char empty[256];
-            fputs("\033[1F\r", stdout);
             xcp_packet_reply reply = send_message(sock, empty, command);
             if (reply.status != XS_OK) {
                 printf("Message not sent.\n");
             }
         }
+
+        free(command);
     }
 
     return 0;
 }
 
-void show_commands_list(char *username) 
+void show_commands_list(char *username)
 {
-    printf("|----------------------------------------\n|\n");
-    printf("|   Hello, %s! Here's a list of available commands:\n|\n|----------------------------------------\n|\n", username);
-    printf("|   users       -   Show active users\n");
-    printf("|   commands    -   List of all available commands\n");
-    printf("|\n|----------------------------------------\n\n\n");
+    gui_write_line("|----------------------------------------");
+    gui_write_line("|");
+    gui_write_line("|   Hello, %s! Here's a list of available "
+                   "commands:",
+                   username);
+    gui_write_line("|");
+    gui_write_line("|----------------------------------------");
+    gui_write_line("|");
+    gui_write_line("|   users       -   Show active users");
+    gui_write_line("|   commands    -   List of all available commands");
+    gui_write_line("|");
+    gui_write_line("|----------------------------------------");
+    gui_write_line("");
 }
 
 void initialize()
@@ -92,19 +101,22 @@ void initialize()
     char *envpath = getenv("HOME");
     snprintf(config_path, 64, "%s/.config", envpath);
     snprintf(config_path_username, 64, "%s/%s", config_path, "username");
-    
+
     // Create xcloud config directory
     mkdir(config_path, 0744);
+
+    gui_open();
 }
 
-struct l_thread {
+struct l_thread
+{
     char *username;
     char *host;
 };
 
 void listening_thread(char *host, char *username)
 {
-    struct l_thread * args = malloc(sizeof(*args));
+    struct l_thread *args = malloc(sizeof(*args));
     args->host = host;
     args->username = username;
 
@@ -114,12 +126,12 @@ void listening_thread(char *host, char *username)
 
 void *listening(void *_args)
 {
-    struct l_thread * args = _args;
+    struct l_thread *args = _args;
     struct sockaddr_in addr;
     int l_sock;
 
     l_sock = socket(AF_INET, SOCK_STREAM, 0);
-    
+
     addr.sin_addr.s_addr = inet_addr(args->host);
     addr.sin_family = AF_INET;
     addr.sin_port = htons(XCP_SEVER_PORT);
@@ -128,12 +140,13 @@ void *listening(void *_args)
         die("Couldn't connect to the xcloud server.");
     }
 
-    xcp_packet_reply hello_reply = send_hello(l_sock, args->username, XCP_CONVERT);
+    xcp_packet_reply hello_reply =
+        send_hello(l_sock, args->username, XCP_CONVERT);
     if (hello_reply.status != XS_OK) {
         die("Couldn't connect to the xcloud server.");
     }
 
-    while(1) {
+    while (1) {
         xcp_packet_header l_header;
         if (read(l_sock, &l_header, sizeof(l_header)) == 0) {
             break;
@@ -149,9 +162,11 @@ void *listening(void *_args)
 
         pthread_mutex_lock(get_console_lock());
         if (!strcmp(p_message_info.dest, args->username)) {
-            printf("[\033[93m%s\033[0m]: %s\n", p_message_info.dest, message);
+            gui_write_line("[\033[93m%s\033[0m]: %s", p_message_info.dest,
+                           message);
         } else {
-            printf("[\033[32m%s\033[0m]: %s\n", p_message_info.dest, message);
+            gui_write_line("[\033[32m%s\033[0m]: %s", p_message_info.dest,
+                           message);
         }
         pthread_mutex_unlock(get_console_lock());
     }
@@ -177,10 +192,9 @@ char *get_username()
 
 char *set_username()
 {
-    char *name = malloc(256);
-    
     printf("Please set your username: ");
-    fgets(name, 256, stdin);
+    char *name = gui_input();
+    rstrip(name);
 
     FILE *fr = fopen(config_path_username, "w");
     fputs(name, fr);
@@ -190,10 +204,10 @@ char *set_username()
     return name;
 }
 
-xcp_packet_reply send_hello(int sock, char *username, xcp_packet_type type) 
+xcp_packet_reply send_hello(int sock, char *username, xcp_packet_type type)
 {
     send_header(sock, type);
-    
+
     xcp_packet_hello p_hello;
     strcpy(p_hello.username, username);
 
@@ -205,17 +219,18 @@ xcp_packet_reply send_hello(int sock, char *username, xcp_packet_type type)
     return reply;
 }
 
-void list_active_users(int sock, char *username) {
+void list_active_users(int sock, char *username)
+{
     strlist users = get_active_users(sock, username);
 
     if (users.len == 0) {
-        printf("There's no active users.\n");
+        gui_write_line("There's no active users.");
         return;
     }
 
-    printf("Active users:\n");
+    gui_write_line("Active users:");
     for (int i = 0; i < users.len; i++) {
-        printf("%s\n", users.strings[i]);
+        gui_write_line("%s", users.strings[i]);
     }
 }
 
@@ -224,10 +239,7 @@ strlist get_active_users(int sock, char *username)
     send_header(sock, XCP_LISTUSERS);
 
     int amount;
-    strlist users = {
-        .strings = NULL,
-        .len = 0
-    };
+    strlist users = {.strings = NULL, .len = 0};
 
     read(sock, &amount, sizeof(int));
 

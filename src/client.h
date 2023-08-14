@@ -1,6 +1,9 @@
 #pragma once
 
+#include "common.h"
 #include "xcp.h"
+
+#include <pthread.h>
 
 void initialize();
 void listening_thread(char *host, char *username);
