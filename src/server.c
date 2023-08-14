@@ -27,6 +27,7 @@ struct client_data
 };
 
 static void info(const char *fmt, ...);
+static void chatinfo(const char *fmt, ...);
 static void die(const char *fmt, ...);
 static int open_server_port(const char *ip);
 static void accept_client(int server_fd);
@@ -175,8 +176,6 @@ void add_client_endpoint(int sock, const char *username)
     p->sock = sock;
     strcpy(p->username, username);
 
-    info("ENDPOINT open %d (%s)", sock, username);
-
     pthread_mutex_unlock(&endpoints.lock);
 }
 
@@ -212,10 +211,10 @@ void send_to_all_endpoints(const char *from, int len, const char *content)
         if (!p)
             continue;
         if (send_to(p->sock, from, len, content) == 1) {
-            info("ENDPOINT %d closed", p->sock);
             close(p->sock);
-            free(endpoints.clients[i]);
             endpoints.clients[i] = NULL;
+
+            free(endpoints.clients[i]);
         }
     }
 }
@@ -260,11 +259,16 @@ void handle_hello(struct client_data *client)
     /* Not logged in */
     if (user == 0) {
         client->user_id = user_add(packet.username)->id;
-        info("[%d] HELLO client connected as `%s`", client->user_id,
-             packet.username);
+        chatinfo("%s joined", packet.username);
+
+        /* TODO: think about the server sending joins */
+        char buf[256];
+        snprintf(buf, 256, "%s joined", packet.username);
+        send_to_all_endpoints("<server>", strlen(buf), buf);
+
         reply.status = XS_OK;
     } else {
-        info("[?] HELLO client requested existing name `%s`", packet.username);
+        info("client requested existing name `%s`", packet.username);
         reply.status = XS_NAMETAKEN;
     }
 
@@ -280,8 +284,8 @@ void handle_sendmsg(struct client_data *client)
     content = calloc(msg.message_len + 1, 1);
     read(client->sock, content, msg.message_len);
 
-    info("[%d] %s wrote: %.*s", client->user_id,
-         user_find(client->user_id)->name, msg.message_len, content);
+    chatinfo("%s wrote: %.*s", user_find(client->user_id)->name,
+             msg.message_len, content);
 
     xcp_packet_reply reply;
     reply.status = XS_OK;
@@ -297,8 +301,6 @@ void handle_listusers(struct client_data *client)
 {
     char buf[256];
     int n = user_count();
-
-    info("[%d] LISTUSERS sending %d users", client->user_id, user_count());
 
     /* amount */
     write(client->sock, &n, sizeof(int));
@@ -346,9 +348,15 @@ void *serve_client(void *_client_data)
 
 disconnect:
     if (client->user_id) {
-        info("[%d] disconnect `%s`", client->user_id,
-             user_find(client->user_id)->name);
+        const char *username = user_find(client->user_id)->name;
+
+        chatinfo("%s disconnected", username);
+        char buf[256];
+        snprintf(buf, 256, "%s disconnected", username);
+        send_to_all_endpoints("<server>", strlen(buf), buf);
+
         user_del(client->user_id);
+
     } else {
         info("[?] disconnect");
     }
@@ -386,7 +394,23 @@ void info(const char *fmt, ...)
 
     pthread_mutex_lock(get_console_lock());
 
-    printf("[server] ");
+    printf("[server] \033[90m");
+    vprintf(fmt, args);
+    fputs("\033[0m\n", stdout);
+
+    pthread_mutex_unlock(get_console_lock());
+
+    va_end(args);
+}
+
+void chatinfo(const char *fmt, ...)
+{
+    va_list args;
+    va_start(args, fmt);
+
+    pthread_mutex_lock(get_console_lock());
+
+    printf("[ chat ] ");
     vprintf(fmt, args);
     fputc('\n', stdout);
 
